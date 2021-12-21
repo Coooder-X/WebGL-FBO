@@ -13,7 +13,23 @@
 	    //变换矩阵管理类对象
 	    var ms=new MatrixState();
 	    //要绘制的3D物体
-	    var ooTri;
+	    var ooTri, ooTri2;
+		var vertexData1 = [7,-5,0,
+					  -7,-5,0.0,
+					  -7,5,0.0,
+					//   7, 5, 0,
+					//   7, -5, 0,
+					//   -7, 7, 0
+					]/*[3.0,0.0,0.0,
+					  0.0,0.0,0.0,
+					  0.0,4.0,0.0];*/
+		var vertexData2 = [3.0,0.0,0.0,
+					  0.0,0.0,0.0,
+					  0.0,4.0,0.0,
+					  -3, 4, 0,
+					  0, 0, 0,
+					  0, 4, 0
+					];
 		//着色器程序列表，集中管理
 		var shaderProgArray=new Array();
       //  var fb, rb, texture;
@@ -44,15 +60,23 @@
 	        gl.enable(gl.DEPTH_TEST);//开启深度检测
 			
 	        //加载着色器程序
-			loadShaderFile("shader/shader.bns",0);
+			loadShaderFile("shader/shader.bns",0);	//	此时也会把link得到的 program 对象反在 shaderProgArray[0] 里
 			
 			if(shaderProgArray[0])//如果着色器已加载完毕
 			{
-				ooTri=new Triangle(gl,shaderProgArray[0]);//创建三角形绘制对象
+				ooTri=new Triangle(gl, vertexData1, shaderProgArray[0]);//创建三角形绘制对象
 			}
 			else
 			{
-				setTimeout(function(){ooTri=new Triangle(gl,shaderProgArray[0]);},10); //休息10ms后再执行
+				setTimeout(function(){ooTri=new Triangle(gl, vertexData1,shaderProgArray[0]);},10); //休息10ms后再执行
+			}
+			if(shaderProgArray[0])// 创建第二个（作为纹理的）三角形
+			{
+				ooTri2=new Triangle(gl, vertexData2,shaderProgArray[0]);//创建三角形绘制对象
+			}
+			else
+			{
+				setTimeout(function(){ooTri2=new Triangle(gl, vertexData2,shaderProgArray[0]);},10); //休息10ms后再执行
 			}
 	        //初始化旋转角度
 	        currentAngle = 0;
@@ -65,7 +89,7 @@
 
 
 			//定时绘制画面
-	        setInterval("drawFrame();",1);
+	        setInterval(drawFrame,1);
 	    }
 	    //绘制一帧画面的方法
 	    function drawFrame()
@@ -77,7 +101,7 @@
             // 在帧缓冲区的颜色关联对象即纹理对象中绘制立方体，纹理使用图片
             gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);// 绑定帧缓冲区对象后绘制就会在绑定帧缓冲区中进行绘制
 
-            gl.viewport(0, 0, 256, 256);
+            gl.viewport(0, 0, 280, 280);
             gl.clearColor(0.2, 0.2, 0.4, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
             //保护现场
@@ -85,10 +109,11 @@
             //执行旋转
             ms.rotate(currentAngle,0,0,1);
 
-            ooTri.drawSelf(ms, false);
+            ooTri2.drawSelf(ms, false);
             //恢复现场
             ms.popMatrix();
 
+			//----------------------------------------------------------------------------------------------------------
             // 在canvas上绘制矩形，纹理使用上一步在纹理对象中绘制的图像
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);// 接触绑定之后，会在默认的颜色缓冲区中绘制
             gl.bindTexture(gl.TEXTURE_2D, texture);
@@ -103,13 +128,13 @@
 
 
 	        //保护现场
-	        ms.pushMatrix(); 
-	        //执行旋转
-			ms.rotate(currentAngle,0,1,0);
-			//绘制物体
+	        // ms.pushMatrix(); 
+	        // //执行旋转
+			// ms.rotate(currentAngle,0,1,0);
+			// //绘制物体
 			ooTri.drawSelf(ms, true);
-			//恢复现场
-			ms.popMatrix();
+			// //恢复现场
+			// ms.popMatrix();
 			//修改旋转角度
 	        currentAngle += incAngle;
 	        if (currentAngle > 360)//保证角度范围不超过360

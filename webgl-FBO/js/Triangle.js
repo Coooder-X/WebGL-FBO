@@ -1,11 +1,10 @@
 function Triangle(								//声明绘制用物体对象所属类
 	gl,						 					//GL上下文
+	vertexData,
 	programIn									//着色器程序id
 ){
 	//this.vertexData=vertexDataIn;						//初始化顶点坐标数据
-	this.vertexData= [3.0,0.0,0.0,
-					  0.0,0.0,0.0,
-					  0.0,3.0,0.0];
+	this.vertexData= vertexData;
 	this.vcount=this.vertexData.length/3;					//得到顶点数量
 	this.vertexBuffer=gl.createBuffer();				//创建顶点坐标数据缓冲
 	gl.bindBuffer(gl.ARRAY_BUFFER,this.vertexBuffer); 	//绑定顶点坐标数据缓冲
@@ -38,11 +37,12 @@ function Triangle(								//声明绘制用物体对象所属类
 		//给管线指定顶点坐标数据
 		gl.vertexAttribPointer(gl.getAttribLocation(this.program,"aPosition"),3,gl.FLOAT,false,0, 0);
 
-        //启用纹理坐标数据
+        //启用纹理坐标数据--------------- 这段和纹理渲染有个有关 -----------------------------------------------------
         gl.enableVertexAttribArray(gl.getAttribLocation(this.program, "aTexCoor"));
         //将顶点纹理坐标数据送入渲染管线
         gl.bindBuffer(gl.ARRAY_BUFFER, this.vertexTexCoorBuffer);
         gl.vertexAttribPointer(gl.getAttribLocation(this.program, "aTexCoor"), 2, gl.FLOAT, false, 0, 0);			//一定要每次都取消绑定，在这里卡了很久
+		//----------------------------------------------------------------------------------------------------------------------------------------
 
         var isImg = gl.getUniformLocation(this.program, 'isImg');
         if(tex){
