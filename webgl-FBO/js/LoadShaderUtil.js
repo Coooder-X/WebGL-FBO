@@ -10,7 +10,8 @@
 		        var shaderStr = req.responseText;//获取响应文本	
 					var shaderStrA=shaderStr.split("<#BREAK_BN#>");	//用分隔符<#BREAK_BN#>切分
 					var vertexShader=new shaderObject("vertex",shaderStrA[0]);//顶点着色器脚本内容
-					var fragmentShader=new shaderObject("fragment",shaderStrA[1]);//片元着色器脚本内容					
+					var fragmentShader=new shaderObject("fragment",shaderStrA[1]);//片元着色器脚本内容	
+					// console.log(shaderStrA[1])				
 					shaderProgArray[index]=loadShaderSerial(gl,vertexShader, fragmentShader);//加载着色器
 		    }
 		}

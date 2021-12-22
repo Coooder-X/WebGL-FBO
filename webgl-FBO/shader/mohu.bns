@@ -1,3 +1,11 @@
+attribute vec2 inPos;
+
+void main() 
+{
+    gl_Position = vec4(inPos, 0.0, 1.0);
+}
+<#BREAK_BN#>
+precision mediump float;
 uniform vec3      iResolution;           // viewport resolution (in pixels)
 uniform float     iTime;                 // shader playback time (in seconds)
 uniform float     iTimeDelta;            // render time (in seconds)
@@ -9,25 +17,14 @@ uniform sampler2D iChannel0;          // input channel. XX = 2D/Cube
 uniform vec4      iDate;                 // (year, month, day, time in seconds)
 uniform float     iSampleRate;           // sound sample rate (i.e., 44100)
 
-float weight[5] = float[5](0.17620410973798, 0.28032472003769, 0.11089769144348, 0.019407096002609, 0.0010872322690537);
-float offset[5] = float[5](0.0, 1.4285714285714, 3.3333333333333, 5.2380952380952, 7.0);
-float blurTimes = 1.0;
-
-bool space() {
-    return texture(iChannel2, vec2(32.5/256.0, 0.5) ).x > 0.5;
-} 
-
 void mainImage( out vec4 fragColor, in vec2 fragCoord )
 {
+    // Normalized pixel coordinates (from 0 to 1)
     vec2 uv = fragCoord/iResolution.xy;
-    vec3 sum_color = vec3(0.0);
-    sum_color = texture(iChannel1, uv).rgb* weight[0];
-    for(int i = 1; i < 5; ++i){
-        sum_color += texture(iChannel0, uv + vec2(0.0, offset[i] / iResolution.y)).rgb * weight[i];
-        sum_color += texture(iChannel0, uv - vec2(0.0, offset[i] / iResolution.y)).rgb * weight[i];
-    }
-    fragColor = vec4(sum_color, 1.0);
-    
+	if(uv.x <= iMouse.x / iResolution.x)
+    	fragColor = texture(iChannel1, uv);
+    else
+    	fragColor = texture(iChannel0, uv);
 }
 
 void main() 

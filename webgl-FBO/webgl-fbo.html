@@ -70,6 +70,7 @@
 			{
 				setTimeout(function(){ooTri=new Triangle(gl, vertexData1,shaderProgArray[0]);},10); //休息10ms后再执行
 			}
+			// loadShaderFile("shader/rainbow.bns",0);	//	此时也会把link得到的 program 对象反在 shaderProgArray[0] 里
 			if(shaderProgArray[0])// 创建第二个（作为纹理的）三角形
 			{
 				ooTri2=new Triangle(gl, vertexData2,shaderProgArray[0]);//创建三角形绘制对象

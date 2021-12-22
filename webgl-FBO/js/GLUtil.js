@@ -2,7 +2,7 @@
 				function initWebGLCanvas(canvasName)
 				{
 				    var canvas = document.getElementById(canvasName);//获取Canvas对象
-				    var names = ["webgl", "experimental-webgl", "webkit-3d", "moz-webgl"];
+				    var names = ["webgl2", "experimental-webgl", "webkit-3d", "moz-webgl"];
 	          		var context = null;//声明上下文变量
 				    for (var ii = 0; ii < names.length; ++ii) //遍历可能的GL上下文名称
 				    {
@@ -27,8 +27,8 @@
 					else if (shaderScript.type == "fragment")//若为片元着色器
 						var shaderType = ctx.FRAGMENT_SHADER;//片元着色器类型
 					else {//否则打印错误信息
-						log("*** Error: shader script of undefined type '"+shaderScript.type+"'");
-					return null;
+						console.log("*** Error: shader script of undefined type '"+shaderScript.type+"'");
+						return null;
 					}
 
 					//根据类型创建着色器程序
@@ -44,8 +44,10 @@
 					var compiled = ctx.getShaderParameter(shader, ctx.COMPILE_STATUS);
 					if (!compiled && !ctx.isContextLost()) {//若编译出错
 						var error = ctx.getShaderInfoLog(shader);//获取错误信息
-						log("*** Error compiling shader '"+shaderId+"':"+error);//打印错误信息
+						console.log("*** Error compiling shader '"+shader+"':"+error);//打印错误信息
 						ctx.deleteShader(shader);//删除着色器程序
+						console.log('--------------------------------------------------------------------')
+
 						return null;//返回空
 					}			
 					return shader;//返回着色器程序
@@ -58,7 +60,7 @@
 				    var vertexShader = loadSingleShader(gl, vshader);
 				    //加载片元着色器
 				    var fragmentShader = loadSingleShader(gl, fshader);
-				
+					console.log(fragmentShader)
 				    //创建着色器程序
 				    var program = gl.createProgram();
 				
@@ -75,7 +77,7 @@
 				    {
 				        //获取并在控制台打印错误信息
 				        var error = gl.getProgramInfoLog (program);//获取错误信息
-				        log("Error in program linking:"+error);//打印错误信息
+				        console.log("Error in program linking:"+error);//打印错误信息
 				
 				        gl.deleteProgram(program);//删除着色器程序
 				        gl.deleteProgram(fragmentShader);//删除片元着色器
