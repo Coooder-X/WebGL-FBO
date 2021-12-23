@@ -2,7 +2,7 @@
 				function initWebGLCanvas(canvasName)
 				{
 				    var canvas = document.getElementById(canvasName);//获取Canvas对象
-				    var names = ["webgl2", "experimental-webgl", "webkit-3d", "moz-webgl"];
+				    var names = ["webgl2"];
 	          		var context = null;//声明上下文变量
 				    for (var ii = 0; ii < names.length; ++ii) //遍历可能的GL上下文名称
 				    {
@@ -15,7 +15,8 @@
 					    {
 					      break;
 					    }
-				    }			    
+				    }			
+					console.log('context', context)    
 				    return context;//返回GL上下文对象
 				}
 	
@@ -90,3 +91,19 @@
 				    return program;//返回着色器程序
 				}				
 				
+				function compileShader(gl, shaderType, sourceCode) {
+					const shader = gl.createShader(shaderType);
+					if (!shader) {
+					  throw new Error(`Could not create shader for type: ${shaderType}`);
+					}
+				  
+					gl.shaderSource(shader, sourceCode);
+					gl.compileShader(shader);
+				  
+					if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+					  const info = gl.getShaderInfoLog(shader);
+					  throw Error(`Could not compile WebGL program. \n\n${info}`);
+					}
+				  
+					return shader
+				}
