@@ -7,12 +7,14 @@
 		{
 		    if (req.readyState == 4) //若状态为4
 		    {
+				console.log('req', req.readyState)
 		        var shaderStr = req.responseText;//获取响应文本	
-					var shaderStrA=shaderStr.split("<#BREAK_BN#>");	//用分隔符<#BREAK_BN#>切分
-					var vertexShader=new shaderObject("vertex",shaderStrA[0]);//顶点着色器脚本内容
-					var fragmentShader=new shaderObject("fragment",shaderStrA[1]);//片元着色器脚本内容	
-					// console.log(shaderStrA[1])				
-					shaderProgArray[index]=loadShaderSerial(gl,vertexShader, fragmentShader);//加载着色器
+					// var shaderStrA=shaderStr.split("<#BREAK_BN#>");	//用分隔符<#BREAK_BN#>切分
+					// var vertexShader=new shaderObject("vertex",shaderStrA[0]);//顶点着色器脚本内容
+					// var fragmentShader=new shaderObject("fragment",shaderStrA[1]);//片元着色器脚本内容	
+					// // console.log(shaderStrA[1])				
+					// shaderProgArray[index]=loadShaderSerial(gl,vertexShader, fragmentShader);//加载着色器
+				return shaderStr;
 		    }
 		}
   	//加载着色器的方法
@@ -20,7 +22,7 @@
 		{
 		    var req = new XMLHttpRequest();//创建XMLHttpRequest对象
 		    req.onreadystatechange = function () //设置响应回调函数
-			{ processLoadShader(req,index) };//调用processLoadShader处理响应
+			{ returnprocessLoadShader(req,index) };//调用processLoadShader处理响应
 		    req.open("GET", url, true);//用GET方式打开指定URL
 		    req.responseType = "text";//设置响应类型
 		    req.send(null);//发送HTTP请求
