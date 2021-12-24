@@ -5,6 +5,7 @@
 	<script type="text/javascript" src="js/GLUtil.js"></script>
 	<script type="text/javascript" src="./webgl-utils.js"></script>
 	<script type="text/javascript" src="shader/glsl_shader.js"></script>
+	<script type="text/javascript" src="shader/multi_buffer_test.js"></script>
 	<script>
 		Locations =  {
 			INPOS: 'inPos',
@@ -13,8 +14,9 @@
 			TIME: 'iTime',
 		}
 		var vs
-		var fs
-		var fs2
+		var bufferA = bufferA
+		var bufferB = bufferB
+		var image = image
 
 		const POS_DATA = [-1, -1, 1, -1, 1, 1, -1, 1];
 		const INX_DATA = [0, 1, 2, 0, 2, 3];
@@ -26,16 +28,17 @@
 		var	gl
 		var program
 		//着色器程序列表，集中管理
-        var framebuffer, framebuffer2;
+        var framebuffer, framebuffer2, framebuffer3;
 		
         //初始化的方法
 		function init() {
 			canvas = document.getElementById('bncanvas');
 			gl = initWebGLCanvas('bncanvas')
 			console.log(gl)
-			fs2 = black_noise_F
-			fs = image
 			vs = V_shader
+			bufferA = bufferA
+			bufferB = bufferB
+			image = image
 			// canvas.addEventListener('mousemove', (e) => {
 			// 	mouseX = e.clientX;
 			// 	mouseY = e.clientY;
@@ -80,19 +83,19 @@
 			}   
 			// create GLSL shaders, upload the GLSL source, compile the shaders---------------------------------
 			var vertexShader = createShader(gl, gl.VERTEX_SHADER, vs);
-			var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fs);
+			var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, bufferA);
 			// Link the two shaders into a program
 			program = createProgram(gl, vertexShader, fragmentShader);
 			//---------------------------------------------------------------------------------------------------
 
 			var vertexShader2 = createShader(gl, gl.VERTEX_SHADER, vs);
-			var fragmentShader2 = createShader(gl, gl.FRAGMENT_SHADER, fs2);
+			var fragmentShader2 = createShader(gl, gl.FRAGMENT_SHADER, bufferB);
 			// Link the two shaders into a program
 			program2 = createProgram(gl, vertexShader2, fragmentShader2);
 			//---------------------------------------------------------------------------------------------------
 
 			var vertexShader3 = createShader(gl, gl.VERTEX_SHADER, vs);
-			var fragmentShader3 = createShader(gl, gl.FRAGMENT_SHADER, fs2);
+			var fragmentShader3 = createShader(gl, gl.FRAGMENT_SHADER, image);
 			program3 = createProgram(gl, vertexShader3, fragmentShader3);
 			//---------------------------------------------------------------------------------------------------
 
@@ -130,6 +133,7 @@
 			gl.clearColor(0.0, 0.0, 0.0, 1.0);
 			framebuffer = initFramebufferObject(gl)
 			framebuffer2 = initFramebufferObject(gl)
+			framebuffer3 = initFramebufferObject(gl)
 			
 			render()
 	    }
@@ -137,18 +141,30 @@
 			time += 0.01
 			//	多个 buffer 和 image 的输入输出关系，并渲染
 			drawFrame(program, null, framebuffer)
-			drawFrame(program3, framebuffer.texture, framebuffer2)
-			drawFrame(program2, framebuffer2.texture, null)
+			drawFrame(program2, [framebuffer.texture], framebuffer2)
+			drawFrame(program3, [framebuffer.texture, framebuffer2.texture], null)
 
 			requestAnimationFrame(render);
 		}
 
 	    //绘制一帧画面的方法: 对应的program，输入的texture，渲染到的帧缓冲
-	    function drawFrame(program, texture, renderToFrameBuffer) {	  
+	    function drawFrame(program, textureList, renderToFrameBuffer) {	
 			gl.useProgram(program)
+
+			for(let i = 0; textureList && i < textureList.length; ++i) {
+				// 寻找取样器的位置
+				var u_image0Location = gl.getUniformLocation(program, `iChannel${i}`);
+				
+				// 设置使用的纹理单元
+				gl.uniform1i(u_image0Location, i);  // 纹理单元 0
+			}
+
 			gl.bindFramebuffer(gl.FRAMEBUFFER, renderToFrameBuffer);// 接触绑定之后，会在默认的颜色缓冲区中绘制
-			if(texture)	//	没有输入的buffer层是没有texture的
-            	gl.bindTexture(gl.TEXTURE_2D, texture);
+			if(textureList)	//	没有输入的buffer层是没有texture的
+				for(let i = 0; i < textureList.length; ++i) {
+					gl.activeTexture(gl.TEXTURE0 + i);
+            		gl.bindTexture(gl.TEXTURE_2D, textureList[i]);
+				}
 			gl.viewport(0, 0, canvas.width, canvas.height);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
