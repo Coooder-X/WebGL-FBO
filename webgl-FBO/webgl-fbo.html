@@ -40,11 +40,125 @@
 		in  vec2 fragCoord;
 		out vec4 fragColor;
 
-		void mainImage(out vec4 fragColor, in vec2 fragCoord)
+		/*void mainImage(out vec4 fragColor, in vec2 fragCoord)
 		{
 			vec2 st = fragCoord.xy / iResolution.xy / (100.0*iTime);
 			fragColor = vec4(st, 0.0, 1.0);
+		}*/
+		// Depth and normal Pass
+		#define PRECIS 0.001
+		#define DMAX 20.0
+		mat3 camMat;
+		vec3 lightDir = normalize(vec3(5.0, 5.0, -4.0));
+
+		// Distance functions by www.iquilezles.org
+		float fSubtraction(float a, float b) {return max(-a,b);}
+		float fIntersection(float d1, float d2) {return max(d1,d2);}
+		void fUnion(inout float d1, float d2) {d1 = min(d1,d2);}
+		float pSphere(vec3 p, float s) {return length(p)-s;}
+		float pRoundBox(vec3 p, vec3 b, float r) {return length(max(abs(p)-b,0.0))-r;}
+		float pTorus(vec3 p, vec2 t) {vec2 q = vec2(length(p.xz)-t.x,p.y); return length(q)-t.y;}
+		float pTorus2(vec3 p, vec2 t) {vec2 q = vec2(length(p.xy)-t.x,p.z); return length(q)-t.y;}
+		float pCapsule(vec3 p, vec3 a, vec3 b, float r) {vec3 pa = p - a, ba = b - a;
+				float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 ); return length( pa - ba*h ) - r;}
+
+		float map(vec3 p)
+		{
+				float d = 100000.0;
+
+			fUnion(d, pRoundBox(p - vec3(0,-2.0,0), vec3(4,0.1,4), 0.2));
+				fUnion(d, pSphere(p - vec3(2,0,2), 1.5));
+			fUnion(d, pSphere(p - vec3(3.5,-1.0,0.0), 0.8));
+			fUnion(d, pTorus(p - vec3(-2,0,2), vec2(1,0.3)));
+				fUnion(d, pTorus2(p - vec3(-3,0,2), vec2(1,0.3)));
+			fUnion(d, pRoundBox(p - vec3(2,0.6,-2), vec3(0.1,0.1,1), 0.3));
+				fUnion(d, pRoundBox(p - vec3(2,0,-2), vec3(0.1,1.5,0.1), 0.3));
+				fUnion(d, pRoundBox(p - vec3(2,-0.4,-2), vec3(1.2,0.1,0.1), 0.3));
+			fUnion(d, pCapsule(p, vec3(-2,1.5,-2), vec3(-2,-1,-1.0), 0.3));
+				fUnion(d, pCapsule(p, vec3(-2,1.5,-2), vec3(-1.0,-1,-2.5), 0.3));
+				fUnion(d, pCapsule(p, vec3(-2,1.5,-2), vec3(-3.0,-1,-2.5), 0.3));
+				
+				return d;
 		}
+
+		vec3 normal(vec3 pos) {
+			vec2 eps = vec2(0.001, 0.0);
+			return normalize(vec3(        map(pos + eps.xyy) - map(pos - eps.xyy),
+											map(pos + eps.yxy) - map(pos - eps.yxy),
+										map(pos + eps.yyx) - map(pos - eps.yyx)));
+		}
+
+		float shadow(vec3 ro, vec3 rd)
+		{
+			float res = 1.0;
+			float t = PRECIS * 30.0;
+			for( int i=0; i < 30; i++ )
+			{
+						float distToSurf = map( ro + rd*t );
+				res = min(res, 8.0 * distToSurf / t);
+				t += distToSurf;
+				if(distToSurf < PRECIS || t > DMAX) break;
+			}
+			
+			return clamp(res, 0.0, 1.0);
+		}
+
+		vec4 raymarching(vec3 ro, vec3 rd)
+		{
+			float t = 0.0;
+			for (int i = 0; i < 50; i++) {
+					float distToSurf = map(ro + t * rd);
+				t += distToSurf;
+				if (distToSurf < PRECIS || t > DMAX) break; 
+			}
+			
+			vec4 col = vec4(0.0);
+			if (t <= DMAX) {
+				vec3 nor = normal(ro + t * rd);
+				col.z = 1.0 - abs((t * rd) * camMat).z / DMAX; // Depth
+				col.xy = (nor * camMat * 0.5 + 0.5).xy;        // Normal
+				col.w = dot(lightDir, nor) * 0.5 + 0.5; // Diff
+				col.w *= shadow(ro + t * rd, lightDir);
+			}
+			
+			return col;
+		}
+
+		mat3 setCamera(vec3 ro, vec3 ta, float cr)
+		{
+				vec3 cw = normalize(ta-ro);
+				vec3 cp = vec3(sin(cr), cos(cr),0.0);
+				vec3 cu = normalize( cross(cw,cp) );
+				vec3 cv = normalize( cross(cu,cw) );
+			return mat3( cu, cv, cw );
+		}
+
+		void mainImage( out vec4 fragColor, in vec2 fragCoord )
+		{
+			vec2 p = (2.0 * fragCoord.xy - iResolution.xy) / iResolution.yy;
+			
+			// Mouse
+			vec2 mo = vec2(0.0);
+			//    这个地方和preset里的头部有差别，我们的项目里iMouse是2维的
+			/*if (iMouse.z > 0.0) {
+				mo += (2.0 * iMouse.xy - iResolution.xy) / iResolution.yy;
+			}*/
+			
+			// Camera position
+			float dist = 6.5;
+			vec3 ro = vec3(dist * cos(iTime * 0.1 + 6.0 * mo.x), 2.0 + mo.y * 4.0, dist * sin(iTime * 0.1 + 6.0 * mo.x));
+			
+			// Rotate the camera
+			vec3 target = vec3(0.0, 0.0, 0.0);
+			
+			// Compute the ray
+			camMat = setCamera(ro, target, 0.0);
+			vec3 rd = camMat * normalize(vec3(p.xy, 1.5));
+			
+			// calculate color
+				fragColor = raymarching(ro, rd);
+		}
+
 		void main() 
 		{
 			vec4 color = vec4(0.0,0.0,0.0,1.0);
@@ -71,14 +185,48 @@
 		uniform int     iFrame;
 		uniform float   iTimeDelta;
 		uniform float   iFrameRate;
+		uniform sampler2D iChannel0;
 
 		in  vec2 fragCoord;
 		out vec4 fragColor;
 
-		void mainImage(out vec4 fragColor, in vec2 fragCoord)
+		#define EdgeColor vec4(0.2, 0.2, 0.15, 1.0)
+		#define BackgroundColor vec4(1,0.95,0.85,1)
+		#define NoiseAmount 0.01
+		#define ErrorPeriod 30.0
+		#define ErrorRange 0.003
+
+		// Reference: https://www.shadertoy.com/view/MsSGD1
+		float triangle(float x)
 		{
-			vec2 st = fragCoord.xy / (100.0*iTime);
-			fragColor = vec4(st, 0.0, 1.0);
+			return abs(1.0 - mod(abs(x), 2.0)) * 2.0 - 1.0;
+		}
+
+		float rand(float x)
+		{
+			return fract(sin(x) * 43758.5453);
+		}
+
+		void mainImage( out vec4 fragColor, in vec2 fragCoord )
+		{
+			float time = floor(iTime * 16.0) / 16.0;
+			vec2 uv = fragCoord.xy / iResolution.xy;
+			uv += vec2(triangle(uv.y * rand(time) * 1.0) * rand(time * 1.9) * 0.005,
+					triangle(uv.x * rand(time * 3.4) * 1.0) * rand(time * 2.1) * 0.005);
+			
+			float noise = (texture(iChannel0, uv * 0.5).r - 0.5) * NoiseAmount;
+			vec2 uvs[3];
+			uvs[0] = uv + vec2(ErrorRange * sin(ErrorPeriod * uv.y + 0.0) + noise, ErrorRange * sin(ErrorPeriod * uv.x + 0.0) + noise);
+			uvs[1] = uv + vec2(ErrorRange * sin(ErrorPeriod * uv.y + 1.047) + noise, ErrorRange * sin(ErrorPeriod * uv.x + 3.142) + noise);
+			uvs[2] = uv + vec2(ErrorRange * sin(ErrorPeriod * uv.y + 2.094) + noise, ErrorRange * sin(ErrorPeriod * uv.x + 1.571) + noise);
+			
+			float edge = texture(iChannel0, uvs[0]).r * texture(iChannel0, uvs[1]).r * texture(iChannel0, uvs[2]).r;
+			float diffuse = texture(iChannel0, uv).g;
+			
+			float w = fwidth(diffuse) * 2.0;
+			vec4 mCol = mix(BackgroundColor * 0.5, BackgroundColor, mix(0.0, 1.0, smoothstep(-w, w, diffuse - 0.3)));
+			fragColor = mix(EdgeColor, mCol, edge);
+			//fragColor = vec4(diffuse);
 		}
 		void main() 
 		{
@@ -123,8 +271,8 @@
 		//着色器程序列表，集中管理
 		var shaderProgArray=new Array();
       //  var fb, rb, texture;
-        var framebuffer;
-        var texture;
+        var framebuffer, framebuffer2;
+        var texture, texture2, texture3;
         //初始化的方法
 		function init() {
 			canvas = document.getElementById('bncanvas');
@@ -181,6 +329,10 @@
 
 			// Link the two shaders into a program
 			program2 = createProgram(gl, vertexShader2, fragmentShader2);
+
+			var vertexShader3 = createShader(gl, gl.VERTEX_SHADER, vs);
+			var fragmentShader3 = createShader(gl, gl.FRAGMENT_SHADER, fs2);
+			program3 = createProgram(gl, vertexShader3, fragmentShader3);
 			
 
 			const positionLocation = gl.getAttribLocation(
@@ -191,6 +343,10 @@
 				program2,
 				Locations.INPOS,
 			);
+			// const positionLocation3 = gl.getAttribLocation(
+			// 	program3,
+			// 	Locations.INPOS,
+			// );
 	        //获取GL上下文
 	        // gl = initWebGLCanvas("bncanvas");
 			
@@ -223,33 +379,53 @@
 				0,
 				0,
 			);
-			gl.enableVertexAttribArray(positionLocation2);
-			gl.vertexAttribPointer(
-				positionLocation2,
-				2,
-				gl.FLOAT,
-				false,
-				0,
-				0,
-			);
+			//---------------------------------
+			// gl.useProgram(program2);
+			// bufferPos = gl.createBuffer();
+			// gl.bindBuffer(gl.ARRAY_BUFFER, bufferPos);
+			// gl.bufferData(
+			// 	gl.ARRAY_BUFFER,
+			// 	new Float32Array(POS_DATA),
+			// 	gl.STATIC_DRAW,
+			// );
+			// bufferInx = gl.createBuffer();
+			// gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, bufferInx);
+			// gl.bufferData(
+			// 	gl.ELEMENT_ARRAY_BUFFER,
+			// 	new Uint16Array(INX_DATA),
+			// 	gl.STATIC_DRAW,
+			// );
+			// gl.enableVertexAttribArray(positionLocation2);
+			// gl.vertexAttribPointer(
+			// 	positionLocation2,
+			// 	2,
+			// 	gl.FLOAT,
+			// 	false,
+			// 	0,
+			// 	0,
+			// );
+			//--------------------------------------
 
 			gl.enable(gl.DEPTH_TEST);
 			gl.clearColor(0.0, 0.0, 0.0, 1.0);
-			initFramebufferObject(gl)
-
+			framebuffer = initFramebufferObject(gl)
+			framebuffer2 = initFramebufferObject(gl)
 			
 			render()
 	    }
 		function render() {
+			time += 0.01
+			// framebuffer = initFramebufferObject(gl)
+			/////------------------------主图形
 			// 在帧缓冲区的颜色关联对象即纹理对象中绘制立方体，纹理使用图片
-			gl.useProgram(program2)
+			gl.useProgram(program)
             gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);// 绑定帧缓冲区对象后绘制就会在绑定帧缓冲区中进行绘制
 			gl.viewport(0, 0, canvas.width, canvas.height);
             // gl.clearColor(0.2, 0.2, 0.4, 1.0);
             gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 			gl.uniform2f(
 				gl.getUniformLocation(
-					program2,
+					program,
 					Locations.RESOLUTION,
 				),
 				canvas.width,
@@ -257,16 +433,49 @@
 			);
 			gl.uniform1f(
 				gl.getUniformLocation(
-					program2,
+					program,
 					Locations.TIME,
 				),
-				time//1 / 1000.0,
+				time
 			);
-			time += 0.01
-			// console.log(gl.getUniformLocation(
-			// 		program2,
-			// 		Locations.TIME,
-			// 	))
+
+			gl.drawElements(
+				gl.TRIANGLES,
+				INX_DATA.length,
+				gl.UNSIGNED_SHORT,
+				0,
+			);
+			// gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+       		gl.bindTexture(gl.TEXTURE_2D, null);
+
+			/////////////////////////-----------------------------第二个buffer
+
+			// framebuffer2 = initFramebufferObject(gl)
+			gl.useProgram(program3)
+
+			// gl.uniform1i(gl.getUniformLocation(program3, "iChannel0"), framebuffer2.texture);
+			gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer2);// 接触绑定之后，会在默认的颜色缓冲区中绘制
+
+            gl.bindTexture(gl.TEXTURE_2D, framebuffer.texture);
+			gl.viewport(0, 0, canvas.width, canvas.height);
+			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+			gl.uniform2f(
+				gl.getUniformLocation(
+					program3,
+					Locations.RESOLUTION,
+				),
+				canvas.width,
+				canvas.height,
+			);
+			gl.uniform1f(
+				gl.getUniformLocation(
+					program3,
+					Locations.TIME,
+				),
+				time
+			);
 
 			gl.drawElements(
 				gl.TRIANGLES,
@@ -277,22 +486,26 @@
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);
        		gl.bindTexture(gl.TEXTURE_2D, null);
 
-			///////////////////////--------------主图形
-			gl.useProgram(program)
+			///////////////////////--------------滤镜
+			gl.useProgram(program2)
+
+			//设置纹理
 			// vertexTexCoorBuffer=gl.createBuffer();
 			// //将顶点纹理坐标数据送入缓冲
 			// gl.bindBuffer(gl.ARRAY_BUFFER,vertexTexCoorBuffer);
 			// gl.bufferData(gl.ARRAY_BUFFER,new Float32Array(INX_DATA),gl.STATIC_DRAW);
 			// gl.bindBuffer(gl.ARRAY_BUFFER, vertexTexCoorBuffer);
 
+			// gl.uniform1i(gl.getUniformLocation(program2, "iChannel0"), framebuffer.texture);
 			gl.bindFramebuffer(gl.FRAMEBUFFER, null);// 接触绑定之后，会在默认的颜色缓冲区中绘制
-            gl.bindTexture(gl.TEXTURE_2D, texture);
+
+            gl.bindTexture(gl.TEXTURE_2D, framebuffer2.texture);
 			gl.viewport(0, 0, canvas.width, canvas.height);
 			gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
 			gl.uniform2f(
 				gl.getUniformLocation(
-					program,
+					program2,
 					Locations.RESOLUTION,
 				),
 				canvas.width,
@@ -300,13 +513,11 @@
 			);
 			gl.uniform1f(
 				gl.getUniformLocation(
-					program,
+					program2,
 					Locations.TIME,
 				),
-				1/1000.0,
+				time
 			);
-			// console.log(time)
-			// time += 0.00001
 
 			gl.drawElements(
 				gl.TRIANGLES,
@@ -368,10 +579,10 @@
 	            currentAngle -= 360; 			
 	    }
         function initFramebufferObject(gl) {
-             framebuffer = gl.createFramebuffer();
+            var tmpframebuffer = gl.createFramebuffer();
 
             // 新建纹理对象作为帧缓冲区的颜色缓冲区对象
-             texture = gl.createTexture();
+            var texture = gl.createTexture();
             gl.bindTexture(gl.TEXTURE_2D, texture);
             gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, canvas.width, canvas.height, 0, gl.RGB, gl.UNSIGNED_BYTE, null);
             gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -384,7 +595,7 @@
             gl.bindRenderbuffer(gl.RENDERBUFFER, depthBuffer);
             gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, canvas.width, canvas.height);
 
-            gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+            gl.bindFramebuffer(gl.FRAMEBUFFER, tmpframebuffer);
             gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
             gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, depthBuffer);
 
@@ -398,6 +609,8 @@
             gl.bindFramebuffer(gl.FRAMEBUFFER, null);
             gl.bindTexture(gl.TEXTURE_2D, null);
             gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+			tmpframebuffer.texture = texture
+			return tmpframebuffer
         }
 		// start()
 	</script>
