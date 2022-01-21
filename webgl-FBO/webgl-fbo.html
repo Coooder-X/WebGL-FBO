@@ -5,7 +5,8 @@
 	<script type="text/javascript" src="js/GLUtil.js"></script>
 	<script type="text/javascript" src="./webgl-utils.js"></script>
 	<script type="text/javascript" src="shader/glsl_shader.js"></script>
-	<script type="text/javascript" src="shader/multi_buffer_test.js"></script>
+	<!-- <script type="text/javascript" src="shader/multi_buffer_test.js"></script> -->
+	<script type="text/javascript" src="shader/loopRend.js"></script>
 	<script>
 		Locations =  {
 			INPOS: 'inPos',
@@ -88,10 +89,10 @@
 			program = createProgram(gl, vertexShader, fragmentShader);
 			//---------------------------------------------------------------------------------------------------
 
-			var vertexShader2 = createShader(gl, gl.VERTEX_SHADER, vs);
-			var fragmentShader2 = createShader(gl, gl.FRAGMENT_SHADER, bufferB);
-			// Link the two shaders into a program
-			program2 = createProgram(gl, vertexShader2, fragmentShader2);
+			// var vertexShader2 = createShader(gl, gl.VERTEX_SHADER, vs);
+			// var fragmentShader2 = createShader(gl, gl.FRAGMENT_SHADER, bufferB);
+			// // Link the two shaders into a program
+			// program2 = createProgram(gl, vertexShader2, fragmentShader2);
 			//---------------------------------------------------------------------------------------------------
 
 			var vertexShader3 = createShader(gl, gl.VERTEX_SHADER, vs);
@@ -136,14 +137,29 @@
 			framebuffer3 = initFramebufferObject(gl)
 			
 			render()
-	    }
+	    }  
+		var t = 0;
 		function render() {
 			time += 0.01
 			//	多个 buffer 和 image 的输入输出关系，并渲染
-			drawFrame(program, null, framebuffer)
-			drawFrame(program2, [framebuffer.texture], framebuffer2)
-			drawFrame(program3, [framebuffer.texture, framebuffer2.texture], null)
 
+			if(t == 0) {
+				drawFrame(program, null, framebuffer2)
+			} else {
+				if(t % 2 == 1) {
+					drawFrame(program, [framebuffer2.texture], framebuffer)
+					// drawFrame(program, [framebuffer2.texture], framebuffer3)
+					drawFrame(program3, [framebuffer.texture], null)
+				} else {
+					drawFrame(program, [framebuffer.texture], framebuffer2)
+					// drawFrame(program, [framebuffer.texture], framebuffer3)
+					drawFrame(program3, [framebuffer2.texture], null)
+				}
+				// if(t > 3)
+				// 	drawFrame(program3, [framebuffer3.texture], null)
+			}
+
+			t++;
 			requestAnimationFrame(render);
 		}
 
